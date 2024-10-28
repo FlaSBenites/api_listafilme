@@ -1,7 +1,7 @@
 # Movie Awards API
 
 Este é um projeto de API RESTful para gerenciar informações sobre filmes e seus respectivos produtores no contexto dos Golden Raspberry Awards. 
-A API permite operações básicas de CRUD para filmes e fornece informações sobre os intervalos de premiação dos produtores.
+A API permite operações básicas de Consulta a filmes e fornece informações sobre os intervalos de premiação dos produtores.
 
 ## Tecnologias Utilizadas
 
