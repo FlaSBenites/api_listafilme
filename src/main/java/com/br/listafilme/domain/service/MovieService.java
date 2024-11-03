@@ -26,9 +26,10 @@ public class MovieService {
     }
 
     public Map<String, List<Map<String, Object>>> calculateIntervals() {
-        List<Movie> winners = movieRepository.findByWinnerTrue();
+        // Obter todos os filmes vencedores
+        List<Movie> winners = movieRepository.findWinnersOrderedByProducer();
 
-        // Agrupar por produtor e ordenar filmes vencedores por ano
+        // Agrupar os filmes por produtor e ordenar os filmes vencedores por ano
         Map<String, List<Movie>> moviesByProducer = winners.stream()
                 .collect(Collectors.groupingBy(Movie::getProducer, Collectors.toList()));
 
@@ -37,28 +38,28 @@ public class MovieService {
         int minInterval = Integer.MAX_VALUE;
         int maxInterval = Integer.MIN_VALUE;
 
-        // Verificar se algum produtor tem filmes vencedores
+        // Iterar sobre cada produtor e seus filmes vencedores
         for (Map.Entry<String, List<Movie>> entry : moviesByProducer.entrySet()) {
             String producer = entry.getKey();
             List<Movie> producerMovies = entry.getValue();
 
-            // Ordenar os filmes do produtor por ano
+            // Ordenar os filmes do produtor por ano de lançamento
             producerMovies.sort(Comparator.comparing(Movie::getReleaseYear));
 
-            // Verifica se há pelo menos dois filmes para calcular o intervalo
+            // Verificar se há pelo menos dois filmes para calcular o intervalo
             if (producerMovies.size() < 2) {
                 logger.info("Producer " + producer + " has less than 2 winning movies. Skipping.");
-                continue; // Pula produtores sem filmes suficientes
+                continue;
             }
 
-            // Inicializa variáveis para os intervalos mínimo e máximo
+            // Inicializa variáveis para cálculo de intervalo
             int previousWin = producerMovies.get(0).getReleaseYear();
 
             for (int i = 1; i < producerMovies.size(); i++) {
                 int currentWin = producerMovies.get(i).getReleaseYear();
                 int interval = currentWin - previousWin;
 
-                // Atualiza mínimo
+                // Atualiza o intervalo mínimo
                 if (interval < minInterval) {
                     minInterval = interval;
                     minIntervals.clear();
@@ -67,7 +68,7 @@ public class MovieService {
                     minIntervals.add(createIntervalMap(producer, interval, previousWin, currentWin));
                 }
 
-                // Atualiza máximo
+                // Atualiza o intervalo máximo
                 if (interval > maxInterval) {
                     maxInterval = interval;
                     maxIntervals.clear();
@@ -81,11 +82,7 @@ public class MovieService {
             }
         }
 
-        // Exibir intervalos mínimos e máximos encontrados para depuração
-        logger.info("Minimum Intervals: " + minIntervals);
-        logger.info("Maximum Intervals: " + maxIntervals);
-
-        // Verifica se houve alteração nos valores
+        // Verificar se foram encontrados intervalos mínimos e máximos
         if (minIntervals.isEmpty()) {
             minIntervals.add(createIntervalMap("N/A", -1, -1, -1)); // Placeholder se não houver mínimo
         }
@@ -100,11 +97,12 @@ public class MovieService {
     }
 
     private Map<String, Object> createIntervalMap(String producer, int interval, int previousWin, int followingWin) {
-        Map<String, Object> intervalMap = new LinkedHashMap<>();
+        Map<String, Object> intervalMap = new LinkedHashMap<>(); // Garantir a ordem correta
         intervalMap.put("producer", producer);
         intervalMap.put("interval", interval);
         intervalMap.put("previousWin", previousWin);
         intervalMap.put("followingWin", followingWin);
         return intervalMap;
     }
+
 }
