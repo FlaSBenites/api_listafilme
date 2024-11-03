@@ -6,6 +6,7 @@ import lombok.Data;
 import java.util.List;
 
 @Data
+@AllArgsConstructor
 public class ProducerIntervalResponse {
     private List<Interval> min;
     private List<Interval> max;

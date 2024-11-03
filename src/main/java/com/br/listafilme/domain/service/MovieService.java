@@ -2,6 +2,8 @@ package com.br.listafilme.domain.service;
 
 import com.br.listafilme.domain.model.Movie;
 import com.br.listafilme.infrastructure.repository.MovieRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -11,6 +13,7 @@ import java.util.stream.Collectors;
 @Service
 public class MovieService {
 
+    private static final Logger logger = LoggerFactory.getLogger(MovieService.class);
     @Autowired
     private MovieRepository movieRepository;
 
@@ -23,7 +26,6 @@ public class MovieService {
     }
 
     public Map<String, List<Map<String, Object>>> calculateIntervals() {
-
         List<Movie> winners = movieRepository.findByWinnerTrue();
 
         // Agrupar por produtor e ordenar filmes vencedores por ano
@@ -35,6 +37,7 @@ public class MovieService {
         int minInterval = Integer.MAX_VALUE;
         int maxInterval = Integer.MIN_VALUE;
 
+        // Verificar se algum produtor tem filmes vencedores
         for (Map.Entry<String, List<Movie>> entry : moviesByProducer.entrySet()) {
             String producer = entry.getKey();
             List<Movie> producerMovies = entry.getValue();
@@ -42,27 +45,52 @@ public class MovieService {
             // Ordenar os filmes do produtor por ano
             producerMovies.sort(Comparator.comparing(Movie::getReleaseYear));
 
-            for (int i = 1; i < producerMovies.size(); i++) {
-                int interval = producerMovies.get(i).getReleaseYear() - producerMovies.get(i - 1).getReleaseYear();
-                int previousWin = producerMovies.get(i - 1).getReleaseYear();
-                int followingWin = producerMovies.get(i).getReleaseYear();
+            // Verifica se há pelo menos dois filmes para calcular o intervalo
+            if (producerMovies.size() < 2) {
+                logger.info("Producer " + producer + " has less than 2 winning movies. Skipping.");
+                continue; // Pula produtores sem filmes suficientes
+            }
 
+            // Inicializa variáveis para os intervalos mínimo e máximo
+            int previousWin = producerMovies.get(0).getReleaseYear();
+
+            for (int i = 1; i < producerMovies.size(); i++) {
+                int currentWin = producerMovies.get(i).getReleaseYear();
+                int interval = currentWin - previousWin;
+
+                // Atualiza mínimo
                 if (interval < minInterval) {
                     minInterval = interval;
                     minIntervals.clear();
-                    minIntervals.add(createIntervalMap(producer, interval, previousWin, followingWin));
+                    minIntervals.add(createIntervalMap(producer, interval, previousWin, currentWin));
                 } else if (interval == minInterval) {
-                    minIntervals.add(createIntervalMap(producer, interval, previousWin, followingWin));
+                    minIntervals.add(createIntervalMap(producer, interval, previousWin, currentWin));
                 }
 
+                // Atualiza máximo
                 if (interval > maxInterval) {
                     maxInterval = interval;
                     maxIntervals.clear();
-                    maxIntervals.add(createIntervalMap(producer, interval, previousWin, followingWin));
+                    maxIntervals.add(createIntervalMap(producer, interval, previousWin, currentWin));
                 } else if (interval == maxInterval) {
-                    maxIntervals.add(createIntervalMap(producer, interval, previousWin, followingWin));
+                    maxIntervals.add(createIntervalMap(producer, interval, previousWin, currentWin));
                 }
+
+                // Atualiza o ano anterior para o próximo cálculo
+                previousWin = currentWin;
             }
+        }
+
+        // Exibir intervalos mínimos e máximos encontrados para depuração
+        logger.info("Minimum Intervals: " + minIntervals);
+        logger.info("Maximum Intervals: " + maxIntervals);
+
+        // Verifica se houve alteração nos valores
+        if (minIntervals.isEmpty()) {
+            minIntervals.add(createIntervalMap("N/A", -1, -1, -1)); // Placeholder se não houver mínimo
+        }
+        if (maxIntervals.isEmpty()) {
+            maxIntervals.add(createIntervalMap("N/A", -1, -1, -1)); // Placeholder se não houver máximo
         }
 
         Map<String, List<Map<String, Object>>> result = new HashMap<>();
@@ -72,7 +100,7 @@ public class MovieService {
     }
 
     private Map<String, Object> createIntervalMap(String producer, int interval, int previousWin, int followingWin) {
-        Map<String, Object> intervalMap = new HashMap<>();
+        Map<String, Object> intervalMap = new LinkedHashMap<>();
         intervalMap.put("producer", producer);
         intervalMap.put("interval", interval);
         intervalMap.put("previousWin", previousWin);
